@@ -1,0 +1,145 @@
+#ifndef  FINAL_INCLUDED
+#define  FINAL_INCLUDED
+
+/****************************************************************************/
+/***        Include Files                                                 ***/
+/****************************************************************************/
+#include <jendefs.h>
+#include <AppHardwareApi.h>
+#include <AppQueueApi.h>
+#include <Utilities.h>
+#include <FontalLED.h>
+#include <FontalButton.h>
+#include <FontalWtd.h>
+#include <HtsDriver.h>
+
+#include <mac_sap.h>
+#include <mac_pib.h>
+
+#include "lib/string.h"
+#include "lib/utility.h"
+#include "lib/serialq.h"
+#include "lib/uart.h"
+#include "lib/serial.h"
+
+/****************************************************************************/
+/***        Macro Definitions                                             ***/
+/****************************************************************************/
+/* PC UART parameters */
+#define PC_UARTPORT		E_AHI_UART_0
+#define PC_UARTEVENT	E_AHI_DEVICE_UART0
+#define PC_UARTBAUDRATE	E_AHI_UART_RATE_38400
+
+/* Network parameters */
+#define PAN_ID					0xABCD
+#define BROADCAST_ADR			0x0000
+#define COORDINATOR_ADR			0x0001
+#define END_DEVICE_ADR			0x0004
+#define MAX_NODE				20
+#define MAX_CHILD				1
+#define SCAN_CHANNELS			0x07FFF800UL
+#define CHANNEL_MIN				11
+#define ACTIVE_SCAN_DURATION	3
+#define ENERGY_SCAN_DURATION	3
+#define HELLO_INTERVAL			5
+#define DELAYED_INTERVAL		5
+#define DELAYED_TIMEOUT			2
+#define MAX_HOPCOUNT			4
+#define CSKIP_ADDR              0x0001
+
+/****************************************************************************/
+/***        Type Definitions                                              ***/
+/****************************************************************************/
+typedef enum
+{
+	E_STATE_IDLE,
+	E_STATE_ENERGY_SCANNING,
+	E_STATE_COORDINATOR,
+
+	E_STATE_ACTIVE_SCANNING,
+	E_STATE_ASSOCIATING,
+	E_STATE_ASSOCIATED
+} teState;
+
+typedef struct
+{
+	uint16			u16ShortAdr;
+	uint32			u32ExtAdrL;
+	uint32			u32ExtAdrH;
+} tsChildData;
+
+typedef struct {
+	uint16			src;
+	uint16			dest;
+	char			command[100];
+	uint8			timeout;
+} tsDelayedData;
+
+typedef struct {
+	teState			eState;
+
+	uint16			u16NbrChild;
+	tsChildData		sChildData[MAX_CHILD];
+	uint16			uNextHop[MAX_NODE];
+	bool			u8NbrSense[MAX_NODE];
+	tsDelayedData	sDelayedData[100];
+
+	uint8			u8Channel;
+	uint8			u8TxPacketSeqNb;
+	uint8			u8RxPacketSeqNb;
+	uint16			u16ParentAddress;
+	uint16			u16Address;
+} tsNodeData;
+
+/****************************************************************************/
+/***        Local Function Prototypes                                     ***/
+/****************************************************************************/
+// for normal usage
+PUBLIC void AppColdStart(void);
+PUBLIC void AppWarmStart(void);
+PRIVATE void InitSystem(void);
+// for applicaiton queue usage
+PRIVATE void vProcessEventQueues(void);
+PRIVATE void vProcessIncomingHwEvent(AppQApiHwInd_s *psAHI_Ind);
+PRIVATE void vProcessIncomingHwEventDetail(uint32 u32DeviceId, uint32 u32ItemBitmap);
+PRIVATE void vProcessIncomingMlme(MAC_MlmeDcfmInd_s *psMlmeInd);
+PRIVATE void vProcessIncomingMcps(MAC_McpsDcfmInd_s *psMcpsInd);
+// for 802.15.4 wireless connection
+PRIVATE void vStartActiveScan(void);
+PRIVATE void vStartEnergyScan(void);
+PRIVATE void vStartCoordinator(void);
+PRIVATE void vStartAssociate(void);
+PRIVATE void vStartTickTimer(void);
+PRIVATE void vHandleActiveScanResponse(MAC_MlmeDcfmInd_s *psMlmeInd);
+PRIVATE void vHandleEnergyScanResponse(MAC_MlmeDcfmInd_s *psMlmeInd);
+PRIVATE void vHandleNodeAssociation(MAC_MlmeDcfmInd_s *psMlmeInd);
+PRIVATE void vHandleAssociateResponse(MAC_MlmeDcfmInd_s *psMlmeInd);
+PRIVATE void vHandleMcpsDataInd(MAC_McpsDcfmInd_s *psMcpsInd);
+PRIVATE void vHandleMcpsDataDcfm(MAC_McpsDcfmInd_s *psMcpsInd);
+// for PC uart data
+PUBLIC void vUartPrint(uint8 u8UartPort, char *pcString);
+// for wireless data
+PRIVATE void vProcessReceivedDataPacket(uint8 *pu8Data, uint8 u8Len);
+PRIVATE void vProcessBroadcastDataPacket(uint8 *pu8Data, uint8 u8Len);
+PRIVATE void vTransmitDataPacket(uint8 *pu8Data, uint8 u8Len, uint16 u16DestAdr);
+//routing member
+PRIVATE uint16 findNextHop(uint16 dest);
+//delayed transmission
+PRIVATE void appendDelayedData(uint16 src,uint16 dest,char* command, uint8 timeout);
+PRIVATE void clrDelayedData(tsDelayedData* target);
+// generate content
+PRIVATE void vProcessor(char* command);
+PRIVATE void vTickTimerHandler(void);
+PRIVATE char* dumpHTData(char* str);
+PRIVATE char* dumpRouteData(char* str);
+PRIVATE char* dumpNbrData(char* str);
+PRIVATE char* genNOWADDR(char* str);
+PRIVATE char* genPACKET(char* str,uint16 src,uint16 dest,char* payload);
+PRIVATE char* genHELLO(char* str,uint16 src);
+PRIVATE char* genRREQ(char* str,uint16 src,uint16 dest,uint16 from,uint16 hopcount);
+PRIVATE char* genRREP(char* str,uint16 src,uint16 dest,uint16 from);
+PRIVATE char* genDUMPNBR_R(char* str,uint16 src,uint16 dest);
+PRIVATE char* genDUMPROUTE_R(char* str,uint16 src,uint16 dest);
+PRIVATE char* genDUMPHT_R(char* str,uint16 src,uint16 dest);
+
+#endif
